@@ -1,4 +1,4 @@
-# AutoReloader
+# AutoReloader [![Build Status](https://travis-ci.org/rosenfeld/auto_reloader.svg?branch=master)](https://travis-ci.org/rosenfeld/auto_reloader)
 
 AutoReloader is a lightweight code reloader intended to be used specially in development mode of server applications.
 
