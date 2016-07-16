@@ -3,20 +3,21 @@ require_relative '../lib/auto_reloader'
 describe AutoReloader do
   before(:all){
     fixture_lib_path = File.join __dir__, 'fixtures', 'lib'
+    load_once_path = File.join __dir__, 'fixtures', 'load_once'
     AutoReloader.activate onchange: false, reloadable_paths: [ fixture_lib_path ]
-    $LOAD_PATH << fixture_lib_path
+    $LOAD_PATH << fixture_lib_path << load_once_path
   }
   before(:each){ AutoReloader.unload! }
   
   it 'detects only constants defined in autoreloadable files' do
-    expect(defined? ::DateTime).to be nil
+    expect(defined? ::Settings).to be nil
     expect(defined? ::C).to be nil
     require 'c'
     expect(defined? ::C).to eq 'constant'
-    expect(defined? ::DateTime).to eq 'constant'
+    expect(defined? ::Settings).to eq 'constant'
     AutoReloader.unload!
     expect(defined? ::C).to be nil
-    expect(defined? ::DateTime).to eq 'constant'
+    expect(defined? ::Settings).to eq 'constant'
   end
 
   it 'supports require_relative and recursive requires' do

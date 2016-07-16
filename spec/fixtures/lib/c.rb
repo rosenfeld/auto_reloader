@@ -1,4 +1,4 @@
-require 'date'
+require 'settings'
 
 class C
   @@count = 0
