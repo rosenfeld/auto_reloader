@@ -8,7 +8,7 @@ require 'time' unless defined?(Process::CLOCK_MONOTONIC)
 class AutoReloader
   include Singleton
 
-  attr_reader :reloadable_paths
+  attr_reader :reloadable_paths, :default_onchange, :default_delay
 
   module RequireOverride
     def require(path)
@@ -33,8 +33,8 @@ class AutoReloader
   def activate(reloadable_paths: [], onchange: true, delay: nil)
     @activate_lock.synchronize do
       raise ActivatedMoreThanOnce, "Can only activate Autoreloader once" if @reloadable_paths
-      @delay = delay
-      @onchange = onchange
+      @default_delay = delay
+      @default_onchange = onchange
       self.reloadable_paths = reloadable_paths
       Object.include RequireOverride
       @require_lock = Monitor.new # monitor is like Mutex, but reentrant
@@ -86,21 +86,21 @@ class AutoReloader
     Object.require fullpath
   end
 
-  def self.reload!(*args)
+  def self.reload!(delay: instance.default_delay, onchange: instance.default_onchange)
     if block_given?
-      instance.reload!(*args){ yield }
+      instance.reload!(delay: delay, onchange: onchange){ yield }
     else
-      instance.reload!(*args)
+      instance.reload!(delay: delay, onchange: onchange)
     end
   end
 
   InvalidUsage = Class.new RuntimeError
-  def reload!(delay: @default_delay, onchange: @default_onchange)
+  def reload!(delay: default_delay, onchange: default_onchange)
     if onchange && !block_given?
       raise InvalidUsage, 'A block must be provided to reload! when onchange is true (the default)'
     end
 
-    unload! unless ignore_reload?(delay, onchange)
+    unload! unless reload_ignored = ignore_reload?(delay, onchange)
 
     result = nil
     if block_given?
