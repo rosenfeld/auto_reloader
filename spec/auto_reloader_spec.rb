@@ -96,4 +96,8 @@ describe AutoReloader do
     # not be unloaded, for example. It could be extended through built-in modules for example.
     expect(defined? ::B).to eq 'constant'
   end
+
+  pending 'moving or removing a file should not raise while checking for change'
+
+  pending 'default options passed to activate should be used when calling reload!'
 end

@@ -147,14 +147,18 @@ class AutoReloader
   def changed?
     return true unless @last_mtime_by_path
     @reload_lock.synchronize do
-      return @unload_files.any?{|f| @last_mtime_by_path[f] != File.mtime(f) }
+      return @unload_files.any?{|f| @last_mtime_by_path[f] != safe_mtime(f) }
     end
+  end
+
+  def safe_mtime(path)
+    File.mtime(path) if File.exist?(path)
   end
 
   def find_mtime
     @reload_lock.synchronize do
       @last_mtime_by_path = {}
-      @unload_files.each{|f| @last_mtime_by_path[f] = File.mtime f }
+      @unload_files.each{|f| @last_mtime_by_path[f] = safe_mtime f }
     end
     @last_mtime_by_path
   end
