@@ -54,6 +54,10 @@ class AutoReloader
     @reloadable_paths = paths.map{|rp| File.expand_path(rp).freeze }.freeze
   end
 
+  def self.reloadable_paths
+    instance.reloadable_paths
+  end
+
   def require(path, &block)
     was_required = false
     @require_lock.synchronize do
