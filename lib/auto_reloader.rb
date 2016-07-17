@@ -30,24 +30,28 @@ class AutoReloader
   end
 
   ActivatedMoreThanOnce = Class.new RuntimeError
-  def activate(reloadable_paths: [], onchange: true, delay: nil)
+  def activate(reloadable_paths: [], onchange: true, delay: nil, watch_paths: nil,
+              watch_latency: 1)
     @activate_lock.synchronize do
       raise ActivatedMoreThanOnce, "Can only activate Autoreloader once" if @reloadable_paths
       @default_delay = delay
       @default_onchange = onchange
-      self.reloadable_paths = reloadable_paths
-      Object.include RequireOverride
+      @watch_latency = watch_latency
       @require_lock = Monitor.new # monitor is like Mutex, but reentrant
       @reload_lock = Mutex.new
       @top_level_consts_stack = []
       @unload_constants = Set.new
       @unload_files = Set.new
       @last_reloaded = clock_time
+      try_listen unless watch_paths == false
+      self.reloadable_paths = reloadable_paths
+      Object.include RequireOverride
     end
   end
 
   def reloadable_paths=(paths)
     @reloadable_paths = paths.map{|rp| File.expand_path(rp).freeze }.freeze
+    setup_listener if @watch_paths
   end
 
   def require(path, &block)
@@ -108,7 +112,26 @@ class AutoReloader
     end
   end
 
+  def stop_listener
+    @listener.stop if @listener
+  end
+
   private
+
+  def try_listen
+    Kernel.require 'listen'
+    @watch_paths = true
+  rescue LoadError # ignore
+    #puts 'listen is not available. Add it to Gemfile if you want to speed up change detection.'
+  end
+
+  def setup_listener
+    @listener.stop if @listener
+    @listener = Listen.to(*@reloadable_paths, latency: @watch_latency) do |m, a, r|
+      @paths_changed = true
+    end
+    @listener.start
+  end
 
   if defined?(Process::CLOCK_MONOTONIC)
     def clock_time
@@ -129,6 +152,8 @@ class AutoReloader
   end
 
   def changed?
+    return false if @watch_paths && !@paths_changed
+    @paths_changed = false
     return true unless @last_mtime_by_path
     @reload_lock.synchronize do
       return @unload_files.any?{|f| @last_mtime_by_path[f] != safe_mtime(f) }

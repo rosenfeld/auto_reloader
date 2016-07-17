@@ -1,13 +1,31 @@
+gem 'listen'
+
+# we apply a monkey patch to rb-inotify to avoid polluting the logs until a new version is
+# released from master:
+
+begin
+  require 'rb-inotify'
+
+  class INotify::Event
+    def callback!
+      watcher && watcher.callback!(self)
+    end
+  end
+rescue LoadError # ignore
+end
+
 require_relative '../lib/auto_reloader'
 
 describe AutoReloader do
   before(:all){
     fixture_lib_path = File.join __dir__, 'fixtures', 'lib'
     load_once_path = File.join __dir__, 'fixtures', 'load_once'
-    AutoReloader.activate onchange: false, reloadable_paths: [ fixture_lib_path ]
+    AutoReloader.activate onchange: false, reloadable_paths: [ fixture_lib_path ],
+      watch_latency: 0.1
     $LOAD_PATH << fixture_lib_path << load_once_path
   }
   before(:each){ AutoReloader.unload! }
+  after(:all) { AutoReloader.instance.stop_listener }
   
   it 'detects only constants defined in autoreloadable files' do
     expect(defined? ::Settings).to be nil
@@ -61,6 +79,7 @@ describe AutoReloader do
     AutoReloader.reload!(onchange: true){ require 'a' }
     expect(C.count).to be 2 # C wasn't reloaded
     FileUtils.touch File.join __dir__, 'fixtures', 'lib', 'b.rb'
+    sleep 0.2 # wait a little bit for listen to detect the change
     AutoReloader.reload!(onchange: true){ require 'a' }
     expect(C.count).to be 1 # C was reloaded
   end

@@ -59,7 +59,11 @@ Just change "Sample output" to something else and reload the page.
 
 By default reloading will only happen if one of the reloadable file was changed since it was
 required. This can be overriden by providing the `onchange: false` option to either `activate`
-or `reload!`.
+or `reload!`. When the `listen` gem is available it's used by default to detect changes in
+the `reloadable_paths` using specific OS watch mechanisms which allows AutoReloader to speed
+up `reload!` when no changes happened although it won't probably do much difference unless
+your application has tons of reloadable files loaded upon each request. If you don't want to
+use `listen` when available, set `watch_paths: false` when calling `activate`.
 
 ## Known Caveats
 
