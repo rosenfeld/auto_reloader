@@ -1,5 +1,6 @@
 require 'auto_reloader/version'
 require 'singleton'
+require 'forwardable'
 require 'monitor'
 require 'thread' # for Mutex
 require 'set'
@@ -7,8 +8,11 @@ require 'time' unless defined?(Process::CLOCK_MONOTONIC)
 
 class AutoReloader
   include Singleton
+  extend SingleForwardable
 
   attr_reader :reloadable_paths, :default_onchange, :default_delay
+
+  def_delegators :instance, :activate, :reload!, :reloadable_paths, :reloadable_paths=, :unload!
 
   module RequireOverride
     def require(path)
@@ -19,10 +23,6 @@ class AutoReloader
       fullpath = File.join File.dirname(caller.first), path
       AutoReloader.instance.require_relative path, fullpath
     end
-  end
-
-  def self.activate(*args)
-    instance.activate *args
   end
 
   def initialize
@@ -46,16 +46,8 @@ class AutoReloader
     end
   end
 
-  def self.reloadable_paths=(paths)
-    instance.reloadable_paths = paths
-  end
-
   def reloadable_paths=(paths)
     @reloadable_paths = paths.map{|rp| File.expand_path(rp).freeze }.freeze
-  end
-
-  def self.reloadable_paths
-    instance.reloadable_paths
   end
 
   def require(path, &block)
@@ -90,14 +82,6 @@ class AutoReloader
     Object.require fullpath
   end
 
-  def self.reload!(delay: instance.default_delay, onchange: instance.default_onchange)
-    if block_given?
-      instance.reload!(delay: delay, onchange: onchange){ yield }
-    else
-      instance.reload!(delay: delay, onchange: onchange)
-    end
-  end
-
   InvalidUsage = Class.new RuntimeError
   def reload!(delay: default_delay, onchange: default_onchange)
     if onchange && !block_given?
@@ -113,10 +97,6 @@ class AutoReloader
     end
     @last_reloaded = clock_time if delay
     result
-  end
-
-  def self.unload!
-    instance.unload!
   end
 
   def unload!
