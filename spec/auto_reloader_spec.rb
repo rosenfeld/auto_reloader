@@ -124,5 +124,7 @@ describe AutoReloader do
     end
   end
 
-  pending 'default options passed to activate should be used when calling reload!'
+  it 'respects default options passed to activate when calling reload!' do
+    expect(AutoReloader.instance.default_onchange).to be false
+  end
 end
