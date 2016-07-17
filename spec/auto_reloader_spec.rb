@@ -97,7 +97,24 @@ describe AutoReloader do
     expect(defined? ::B).to eq 'constant'
   end
 
-  pending 'moving or removing a file should not raise while checking for change'
+  example 'moving or removing a file should not raise while checking for change' do
+    require 'tmpdir'
+    Dir.mktmpdir do |dir|
+      old_paths = AutoReloader.reloadable_paths
+      AutoReloader.reloadable_paths += [dir]
+      $LOAD_PATH.unshift dir
+
+      tmp_filename = File.join dir, 'to_be_removed.rb'
+      File.write tmp_filename, 'require "c"'
+
+      AutoReloader.reload!(onchange: true){ require 'to_be_removed' }
+      File.delete tmp_filename
+      expect { AutoReloader.reload!(onchange: true){} }.to_not raise_exception
+
+      $LOAD_PATH.shift
+      AutoReloader.reloadable_paths = old_paths
+    end
+  end
 
   pending 'default options passed to activate should be used when calling reload!'
 end
