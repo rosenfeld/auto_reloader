@@ -65,6 +65,18 @@ up `reload!` when no changes happened although it won't probably do much differe
 your application has tons of reloadable files loaded upon each request. If you don't want to
 use `listen` when available, set `watch_paths: false` when calling `activate`.
 
+Currently AutoReloader does not watch files other than those being required and I'm not sure
+if it would be a good idea to provide this kind of feature through some option. However if
+you want to force unloading the reloadable files when some configuration file (YAML, JSON, etc)
+changes, it should be quite simple with the `listen` gem. Here's an example:
+
+```ruby
+app_config = File.expand_path('config/app.json', __dir__)
+Listen.to(File.expand_path('config', __dir__)) do |added, modified, removed|
+  AutoReloader.force_next_reload if (added + modified + removed).include?(app_config)
+end
+```
+
 ## Known Caveats
 
 In order to work transparently AutoReloader will override `require` and `require_relative` when

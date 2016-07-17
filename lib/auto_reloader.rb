@@ -12,7 +12,8 @@ class AutoReloader
 
   attr_reader :reloadable_paths, :default_onchange, :default_delay
 
-  def_delegators :instance, :activate, :reload!, :reloadable_paths, :reloadable_paths=, :unload!
+  def_delegators :instance, :activate, :reload!, :reloadable_paths, :reloadable_paths=,
+    :unload!, :force_next_reload
 
   module RequireOverride
     def require(path)
@@ -104,6 +105,7 @@ class AutoReloader
   end
 
   def unload!
+    @force_reload = false
     @reload_lock.synchronize do
       @unload_files.each{|f| $LOADED_FEATURES.delete f }
       @unload_constants.each{|c| Object.send :remove_const, c }
@@ -114,6 +116,10 @@ class AutoReloader
 
   def stop_listener
     @listener.stop if @listener
+  end
+
+  def force_next_reload
+    @force_reload = true
   end
 
   private
@@ -148,6 +154,7 @@ class AutoReloader
   end
 
   def ignore_reload?(delay, onchange)
+    return false if @force_reload
     (delay && (clock_time - @last_reloaded < delay)) || (onchange && !changed?)
   end
 

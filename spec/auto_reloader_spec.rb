@@ -84,6 +84,18 @@ describe AutoReloader do
     expect(C.count).to be 1 # C was reloaded
   end
 
+  it 'supports forcing next reload' do
+    AutoReloader.reload!(onchange: true){ require 'c' }
+    expect(C.count).to be 1
+    AutoReloader.reload!(onchange: true){ require 'c' }
+    expect(C.count).to be 2
+    AutoReloader.force_next_reload
+    AutoReloader.reload!(onchange: true){ require 'c' }
+    expect(C.count).to be 1
+    AutoReloader.reload!(onchange: true){ require 'c' }
+    expect(C.count).to be 2
+  end
+
   it 'returns the block return value when passed to reload!' do
     expect(AutoReloader.reload!{ 'abc' }).to eq 'abc'
   end
