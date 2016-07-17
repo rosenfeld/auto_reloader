@@ -128,7 +128,7 @@ class AutoReloader
   def setup_listener
     @listener.stop if @listener
     @listener = Listen.to(*@reloadable_paths, latency: @watch_latency) do |m, a, r|
-      @paths_changed = true
+      @paths_changed = [m, a, r].any?{|o| o.any? {|f| reloadable?(f, nil) }}
     end
     @listener.start
   end
