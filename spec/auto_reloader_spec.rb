@@ -79,7 +79,7 @@ describe AutoReloader do
     AutoReloader.reload!(onchange: true){ require 'a' }
     expect(C.count).to be 2 # C wasn't reloaded
     FileUtils.touch File.join __dir__, 'fixtures', 'lib', 'b.rb'
-    sleep 0.2 # wait a little bit for listen to detect the change
+    sleep 0.3 # wait a little bit for listen to detect the change
     AutoReloader.reload!(onchange: true){ require 'a' }
     expect(C.count).to be 1 # C was reloaded
   end
