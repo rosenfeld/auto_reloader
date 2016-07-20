@@ -171,7 +171,7 @@ describe AutoReloader, order: :defined do
     end
 
     # In case another reloader is in use or if the application itself removed it
-    it 'does not raise if a reloadable constant has been already removed', focus: true do
+    it 'does not raise if a reloadable constant has been already removed' do
       require 'c'
       Object.send :remove_const, 'C'
       expect(defined? ::C).to be nil
