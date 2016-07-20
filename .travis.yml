@@ -4,5 +4,4 @@ rvm:
   - jruby-9.1.2.0
 before_install: gem install bundler -v 1.11.2
 env:
-  - WATCH_SLEEP_TIME=5
-  - SKIP_JRUBY_WATCH=1
+  - WATCH_SLEEP_TIME=5 SKIP_JRUBY_WATCH=1
