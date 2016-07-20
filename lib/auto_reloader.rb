@@ -108,7 +108,7 @@ class AutoReloader
     @force_reload = false
     @reload_lock.synchronize do
       @unload_files.each{|f| $LOADED_FEATURES.delete f }
-      @unload_constants.each{|c| Object.send :remove_const, c }
+      @unload_constants.each{|c| safe_remove_constant c }
       @unload_files = Set.new
       @unload_constants = Set.new
     end
@@ -177,5 +177,10 @@ class AutoReloader
       @unload_files.each{|f| @last_mtime_by_path[f] = safe_mtime f }
     end
     @last_mtime_by_path
+  end
+
+  def safe_remove_constant(constant)
+    Object.send :remove_const, constant
+  rescue NameError # ignore if it has been already removed
   end
 end
