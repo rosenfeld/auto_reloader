@@ -92,9 +92,21 @@ describe AutoReloader, order: :defined do
       AutoReloader.reload!(onchange: true){ require 'a' }
       expect(C.count).to be 2 # C wasn't reloaded
       FileUtils.touch File.join __dir__, 'fixtures', 'lib', 'b.rb'
-      sleep RUBY_PLATFORM == 'jruby' ? 2 : 0.5 # wait a little bit for listen to detect the change
-      AutoReloader.reload!(onchange: true){ require 'a' }
+      if watch_paths?
+        sleep RUBY_PLATFORM == 'java' ? 1 : 0.5 # wait for listen to detect the change
+        AutoReloader.reload!(onchange: true){ require 'a' }
+      else
+        AutoReloader.reload!(onchange: true, watch_paths: false){ require 'a' }
+      end
       expect(C.count).to be 1 # C was reloaded
+    end
+
+    # for some reason RSpec doesn't exit in Travis CI when enabling this example
+    # even though it seems to work fine locally
+    def watch_paths?
+      return ENV['FORCE_WATCH'] == '1' if ENV.key?('FORCE_WATCH')
+      #RUBY_PLATFORM != 'java'
+      true
     end
 
     it 'supports forcing next reload' do

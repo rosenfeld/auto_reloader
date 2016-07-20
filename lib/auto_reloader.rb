@@ -88,12 +88,12 @@ class AutoReloader
   end
 
   InvalidUsage = Class.new RuntimeError
-  def reload!(delay: default_delay, onchange: default_onchange)
+  def reload!(delay: default_delay, onchange: default_onchange, watch_paths: @watch_paths)
     if onchange && !block_given?
       raise InvalidUsage, 'A block must be provided to reload! when onchange is true (the default)'
     end
 
-    unload! unless reload_ignored = ignore_reload?(delay, onchange)
+    unload! unless reload_ignored = ignore_reload?(delay, onchange, watch_paths)
 
     result = nil
     if block_given?
@@ -153,13 +153,13 @@ class AutoReloader
     @reloadable_paths.any?{|rp| fullpath.start_with? rp}
   end
 
-  def ignore_reload?(delay, onchange)
+  def ignore_reload?(delay, onchange, watch_paths = @watch_paths)
     return false if @force_reload
-    (delay && (clock_time - @last_reloaded < delay)) || (onchange && !changed?)
+    (delay && (clock_time - @last_reloaded < delay)) || (onchange && !changed?(watch_paths))
   end
 
-  def changed?
-    return false if @watch_paths && !@paths_changed
+  def changed?(watch_paths = @watch_paths)
+    return false if watch_paths && !@paths_changed
     @paths_changed = false
     return true unless @last_mtime_by_path
     @reload_lock.synchronize do
