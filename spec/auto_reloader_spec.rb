@@ -25,11 +25,23 @@ end
 require_relative '../lib/auto_reloader'
 
 describe AutoReloader, order: :defined do
+  # for some reason RSpec doesn't exit in Travis CI when enabling this example
+  # even though it seems to work fine locally
+  def watch_paths?
+    return ENV['FORCE_WATCH'] == '1' if ENV.key?('FORCE_WATCH')
+    RUBY_PLATFORM != 'java' || ENV['SKIP_JRUBY_WATCH'] != '1'
+  end
+
+  def watch_sleep_time
+    return ENV['WATCH_SLEEP_TIME'].to_f if ENV.key?('WATCH_SLEEP_TIME')
+    RUBY_PLATFORM == 'java' ? 2 : 0.3
+  end
+
   fixture_lib_path = File.join __dir__, 'fixtures', 'lib'
   before(:all){
     load_once_path = File.join __dir__, 'fixtures', 'load_once'
     AutoReloader.activate onchange: false, reloadable_paths: [ fixture_lib_path ],
-      watch_latency: 0.1
+      watch_latency: 0.1, watch_paths: watch_paths?
     $LOAD_PATH << fixture_lib_path << load_once_path
   }
   before(:each) do |example|
@@ -92,25 +104,9 @@ describe AutoReloader, order: :defined do
       AutoReloader.reload!(onchange: true){ require 'a' }
       expect(C.count).to be 2 # C wasn't reloaded
       FileUtils.touch File.join __dir__, 'fixtures', 'lib', 'b.rb'
-      if watch_paths?
-        sleep watch_sleep_time # wait for listen to detect the change
-        AutoReloader.reload!(onchange: true){ require 'a' }
-      else
-        AutoReloader.reload!(onchange: true, watch_paths: false){ require 'a' }
-      end
+      sleep watch_sleep_time if watch_paths? # wait for listen to detect the change
+      AutoReloader.reload!(onchange: true){ require 'a' }
       expect(C.count).to be 1 # C was reloaded
-    end
-
-    # for some reason RSpec doesn't exit in Travis CI when enabling this example
-    # even though it seems to work fine locally
-    def watch_paths?
-      return ENV['FORCE_WATCH'] == '1' if ENV.key?('FORCE_WATCH')
-      RUBY_PLATFORM != 'java' || ENV['SKIP_JRUBY_WATCH'] != '1'
-    end
-
-    def watch_sleep_time
-      return ENV['WATCH_SLEEP_TIME'].to_f if ENV.key?('WATCH_SLEEP_TIME')
-      RUBY_PLATFORM == 'java' ? 2 : 0.3
     end
 
     it 'supports forcing next reload' do
