@@ -93,7 +93,7 @@ describe AutoReloader, order: :defined do
       expect(C.count).to be 2 # C wasn't reloaded
       FileUtils.touch File.join __dir__, 'fixtures', 'lib', 'b.rb'
       if watch_paths?
-        sleep RUBY_PLATFORM == 'java' ? 1 : 0.5 # wait for listen to detect the change
+        sleep watch_sleep_time # wait for listen to detect the change
         AutoReloader.reload!(onchange: true){ require 'a' }
       else
         AutoReloader.reload!(onchange: true, watch_paths: false){ require 'a' }
@@ -107,6 +107,11 @@ describe AutoReloader, order: :defined do
       return ENV['FORCE_WATCH'] == '1' if ENV.key?('FORCE_WATCH')
       #RUBY_PLATFORM != 'java'
       true
+    end
+
+    def watch_sleep_time
+      return ENV['WATCH_SLEEP_TIME'].to_f if ENV.key?('WATCH_SLEEP_TIME')
+      RUBY_PLATFORM == 'java' ? 2 : 0.3
     end
 
     it 'supports forcing next reload' do
