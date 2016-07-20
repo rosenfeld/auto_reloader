@@ -105,8 +105,7 @@ describe AutoReloader, order: :defined do
     # even though it seems to work fine locally
     def watch_paths?
       return ENV['FORCE_WATCH'] == '1' if ENV.key?('FORCE_WATCH')
-      #RUBY_PLATFORM != 'java'
-      true
+      RUBY_PLATFORM != 'java' || ENV['SKIP_JRUBY_WATCH'] != '1'
     end
 
     def watch_sleep_time
