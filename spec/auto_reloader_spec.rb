@@ -173,6 +173,11 @@ describe AutoReloader, order: :defined do
       expect{ AutoReloader.unload! }.to_not raise_exception
     end
 
+    it 'unloads constants defined when a require causes an error' do
+      expect{ require 'raise_exception_on_load' }.to raise_exception(Exception)
+      expect(defined? ::DEFINED_CONSTANT).to be nil
+      expect($LOADED_FEATURES.any?{|f| f =~ /raise_exception_on_load/}).to be false
+    end
   end # random order
 
   # this should run as the last one because it will load some files that won't be reloaded

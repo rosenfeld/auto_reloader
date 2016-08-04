@@ -56,24 +56,27 @@ class AutoReloader
   end
 
   def require(path, &block)
-    was_required = false
+    was_required = error = false
     @require_lock.synchronize do
       @top_level_consts_stack << Set.new
       old_consts = Object.constants
       prev_consts = new_top_level_constants = nil
       begin
         was_required = yield
+      rescue Exception
+        error = true
       ensure
         prev_consts = @top_level_consts_stack.pop
-        if was_required
-          new_top_level_constants = Object.constants - old_consts - prev_consts.to_a
-          @top_level_consts_stack.each{|c| c.merge new_top_level_constants }
-        end
-      end
-      return false unless was_required # was required already, do nothing
-      full_loaded_path = $LOADED_FEATURES.last
-      reloadable = reloadable?(full_loaded_path, path)
-      if reloadable
+        return false if !error && !was_required # was required already, do nothing
+
+        new_top_level_constants = Object.constants - old_consts - prev_consts.to_a
+
+        (new_top_level_constants.each{|c| safe_remove_constant c }; raise) if error
+
+        @top_level_consts_stack.each{|c| c.merge new_top_level_constants }
+
+        full_loaded_path = $LOADED_FEATURES.last
+        return was_required unless reloadable? full_loaded_path, path
         @reload_lock.synchronize do
           @unload_constants.merge new_top_level_constants
           @unload_files << full_loaded_path
