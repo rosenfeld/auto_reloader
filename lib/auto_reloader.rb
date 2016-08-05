@@ -56,22 +56,23 @@ class AutoReloader
   end
 
   def require(path, &block)
-    was_required = error = false
+    was_required = false
+    error = nil
     @require_lock.synchronize do
       @top_level_consts_stack << Set.new
       old_consts = Object.constants
       prev_consts = new_top_level_constants = nil
       begin
         was_required = yield
-      rescue Exception
-        error = true
+      rescue Exception => e
+        error = e
       ensure
         prev_consts = @top_level_consts_stack.pop
         return false if !error && !was_required # was required already, do nothing
 
         new_top_level_constants = Object.constants - old_consts - prev_consts.to_a
 
-        (new_top_level_constants.each{|c| safe_remove_constant c }; raise) if error
+        (new_top_level_constants.each{|c| safe_remove_constant c }; raise error) if error
 
         @top_level_consts_stack.each{|c| c.merge new_top_level_constants }
 
