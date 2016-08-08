@@ -88,7 +88,7 @@ class AutoReloader
   end
 
   def require_relative(path, fullpath)
-    Object.require fullpath
+    require(fullpath){ Kernel.require fullpath }
   end
 
   InvalidUsage = Class.new RuntimeError
