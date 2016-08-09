@@ -15,7 +15,7 @@ class AutoReloader
   attr_reader :reloadable_paths, :default_onchange, :default_delay
 
   def_delegators :instance, :activate, :reload!, :reloadable_paths, :reloadable_paths=,
-    :unload!, :force_next_reload
+    :unload!, :force_next_reload, :sync_require!, :async_require!
 
   module RequireOverride
     def require(path)
@@ -35,13 +35,13 @@ class AutoReloader
 
   ActivatedMoreThanOnce = Class.new RuntimeError
   def activate(reloadable_paths: [], onchange: true, delay: nil, watch_paths: nil,
-              watch_latency: 1)
+              watch_latency: 1, sync_require: false)
     @activate_lock.synchronize do
       raise ActivatedMoreThanOnce, 'Can only activate Autoreloader once' if @reloadable_paths
       @default_delay = delay
       @default_onchange = onchange
       @watch_latency = watch_latency
-      @require_lock = Monitor.new # monitor is like Mutex, but reentrant
+      sync_require! if sync_require
       @reload_lock = Mutex.new
       @top_level_consts_stack = []
       @unload_constants = Set.new
@@ -53,6 +53,25 @@ class AutoReloader
     end
   end
 
+  # when concurrent threads require files race conditions may prevent the automatic detection
+  # of constants created by a given file. Calling sync_require! will ensure only a single file
+  # is required at a single time. However, if a required file blocks (think of a web server)
+  # then any requires by a separate thread would be blocked forever (or until the web server
+  # shutdowns). That's why require is async by default even though it would be vulnerable to
+  # race conditions.
+  def sync_require!
+    @require_lock ||= Monitor.new # monitor is like Mutex, but reentrant
+  end
+
+  # See the documentation for sync_require! to understand the reasoning. Async require is the
+  # default behavior but could lead to race conditions. If you know your requires will never
+  # block it may be a good idea to call sync_require!. If you know what require will block you
+  # can call async_require!, require it, and then call sync_require! which will generate a new
+  # monitor.
+  def async_require!
+    @require_lock = nil
+  end
+
   def reloadable_paths=(paths)
     @reloadable_paths = paths.map{|rp| File.expand_path(rp).freeze }.freeze
     setup_listener if @watch_paths
@@ -61,7 +80,7 @@ class AutoReloader
   def require(path, &block)
     was_required = false
     error = nil
-    @require_lock.synchronize do
+    maybe_synchronize do
       @top_level_consts_stack << Set.new
       old_consts = Object.constants
       prev_consts = new_top_level_constants = nil
@@ -88,6 +107,10 @@ class AutoReloader
       end
     end
     was_required
+  end
+
+  def maybe_synchronize(&block)
+    @require_lock ? @require_lock.synchronize(&block) : yield
   end
 
   def require_relative(path, fullpath)

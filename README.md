@@ -77,6 +77,27 @@ Listen.to(File.expand_path('config', __dir__)) do |added, modified, removed|
 end
 ```
 
+## Thread-safety
+
+In order for the automatic constants and required files detection to work correctly it should
+process a single require at a time. If your code has multiple threads requiring code, then it
+might cause a race condition that could cause unexpected bugs to happen in AutoReloader. This
+is the default behavior because it's not common to call require from multiple threads in the
+development environment but adding a monitor around require could create a dead-lock which is
+a more serious issue.
+
+For example, if requiring a file would start a web server and block, if the web server is
+started in a separate thread (which could be joined so that the require doesn't return), then
+it wouldn't be able to require new files because the lock was acquired by another thread and
+won't be released while the web server is running.
+
+If you are sure that no require should block in your application (which is also common), you're
+encouraged to call `AutoReloader.sync_require!`. Or pass `sync_require: true` to
+`AutoReloader.activate`. You may even control this behavior dynamically so that you call
+`AutoReloader.async_require!` before the blocking require and then reenable the sync behavior.
+The sync behavior will ensure no race conditions that would break the automatic detection
+mechanism would ever happen.
+
 ## Known Caveats
 
 In order to work transparently AutoReloader will override `require` and `require_relative` when
