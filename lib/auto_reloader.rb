@@ -1,3 +1,5 @@
+# frozen-string-literal: true
+
 require 'auto_reloader/version'
 require 'singleton'
 require 'forwardable'
@@ -21,7 +23,8 @@ class AutoReloader
     end
 
     def require_relative(path)
-      fullpath = File.join File.dirname(caller.first), path
+      from = caller.first.split(':', 2)[0]
+      fullpath = File.expand_path File.join File.dirname(caller.first), path
       AutoReloader.instance.require_relative path, fullpath
     end
   end
@@ -34,7 +37,7 @@ class AutoReloader
   def activate(reloadable_paths: [], onchange: true, delay: nil, watch_paths: nil,
               watch_latency: 1)
     @activate_lock.synchronize do
-      raise ActivatedMoreThanOnce, "Can only activate Autoreloader once" if @reloadable_paths
+      raise ActivatedMoreThanOnce, 'Can only activate Autoreloader once' if @reloadable_paths
       @default_delay = delay
       @default_onchange = onchange
       @watch_latency = watch_latency
