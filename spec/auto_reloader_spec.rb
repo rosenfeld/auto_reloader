@@ -188,6 +188,40 @@ describe AutoReloader, order: :defined do
       expect(defined? ::DEFINED_CONSTANT).to be nil
       expect($LOADED_FEATURES.any?{|f| f =~ /raise_exception_on_load/}).to be false
     end
+
+    context 'awaits for requests to finish before unloading by default' do
+      let(:executed){ [] }
+
+      def start_threads(force_reload:)
+        thread_started = false
+        [
+          Thread.start do
+            AutoReloader.reload!(onchange: true) do
+              AutoReloader.force_next_reload if force_reload
+              thread_started = true
+              sleep 0.01
+              executed << 'a'
+            end
+          end,
+          Thread.start do
+            sleep 0.001 until thread_started
+            AutoReloader.reload!(onchange: true) do
+              executed << 'b'
+            end
+          end
+        ].each &:join
+      end
+
+      it 'does not await when there is no need to unload' do
+        start_threads force_reload: false
+        expect(executed).to eq ['b', 'a']
+      end
+
+      it 'awaits before unload' do
+        start_threads force_reload: true
+        expect(executed).to eq ['a', 'b']
+      end
+    end
   end # random order
 
   # this should run as the last one because it will load some files that won't be reloaded

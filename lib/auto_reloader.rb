@@ -12,7 +12,12 @@ class AutoReloader
   include Singleton
   extend SingleForwardable
 
-  attr_reader :reloadable_paths, :default_onchange, :default_delay
+  # default_await_before_unload will await for all calls to reload! to finish before calling
+  # unload!. This behavior is usually desired in web applications to avoid unloading anything
+  # while a request hasn't been finished, however it won't work fine if some requests are
+  # supposed to remain open, like websockets connections or something like that.
+
+  attr_reader :reloadable_paths, :default_onchange, :default_delay, :default_await_before_unload
 
   def_delegators :instance, :activate, :reload!, :reloadable_paths, :reloadable_paths=,
     :unload!, :force_next_reload, :sync_require!, :async_require!
@@ -35,14 +40,17 @@ class AutoReloader
 
   ActivatedMoreThanOnce = Class.new RuntimeError
   def activate(reloadable_paths: [], onchange: true, delay: nil, watch_paths: nil,
-              watch_latency: 1, sync_require: false)
+               watch_latency: 1, sync_require: false, await_before_unload: true)
     @activate_lock.synchronize do
       raise ActivatedMoreThanOnce, 'Can only activate Autoreloader once' if @reloadable_paths
       @default_delay = delay
       @default_onchange = onchange
+      @default_await_before_unload = await_before_unload
       @watch_latency = watch_latency
       sync_require! if sync_require
       @reload_lock = Mutex.new
+      @zero_requests_condition = ConditionVariable.new
+      @requests_count = 0
       @top_level_consts_stack = []
       @unload_constants = Set.new
       @unload_files = Set.new
@@ -118,16 +126,30 @@ class AutoReloader
   end
 
   InvalidUsage = Class.new RuntimeError
-  def reload!(delay: default_delay, onchange: default_onchange, watch_paths: @watch_paths)
+  def reload!(delay: default_delay, onchange: default_onchange, watch_paths: @watch_paths,
+              await_before_unload: default_await_before_unload)
     if onchange && !block_given?
       raise InvalidUsage, 'A block must be provided to reload! when onchange is true (the default)'
     end
 
-    unload! unless reload_ignored = ignore_reload?(delay, onchange, watch_paths)
+    unless reload_ignored = ignore_reload?(delay, onchange, watch_paths)
+      @reload_lock.synchronize do
+        @zero_requests_condition.wait(@reload_lock) unless @requests_count == 0
+      end if await_before_unload && block_given?
+      unload!
+    end
 
     result = nil
     if block_given?
-      result = yield
+      @reload_lock.synchronize{ @requests_count += 1 }
+      begin
+        result = yield
+      ensure
+        @reload_lock.synchronize{
+          @requests_count -= 1
+          @zero_requests_condition.signal if @requests_count == 0
+        }
+      end
       find_mtime
     end
     @last_reloaded = clock_time if delay

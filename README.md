@@ -98,6 +98,12 @@ encouraged to call `AutoReloader.sync_require!`. Or pass `sync_require: true` to
 The sync behavior will ensure no race conditions that would break the automatic detection
 mechanism would ever happen.
 
+Also, it may be dangerous to unload classes while some requests are being processed. So, since
+version 0.4, the default is to await for all blocks executed by `reload!` to finish running before
+unloading. In case you prefer the old behavior because some requests may never return, which
+could happen with some implementations of websocket connections handled by the same process
+for example, just set the `await_before_unload` to `false` on `activate` or `reload!` calls.
+
 ## Known Caveats
 
 In order to work transparently AutoReloader will override `require` and `require_relative` when
