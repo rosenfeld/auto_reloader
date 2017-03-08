@@ -196,7 +196,8 @@ describe AutoReloader, order: :defined do
         thread_started = false
         [
           Thread.start do
-            AutoReloader.reload!(onchange: true) do
+            AutoReloader.reload!(onchange: true) do |unloaded|
+              expect(unloaded).to be false
               AutoReloader.force_next_reload if force_reload
               thread_started = true
               sleep 0.01
@@ -205,7 +206,8 @@ describe AutoReloader, order: :defined do
           end,
           Thread.start do
             sleep 0.001 until thread_started
-            AutoReloader.reload!(onchange: true) do
+            AutoReloader.reload!(onchange: true) do |unloaded|
+              expect(unloaded).to be force_reload
               executed << 'b'
             end
           end

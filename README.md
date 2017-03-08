@@ -47,7 +47,10 @@ else
   # in the reload! call below
   AutoReloader.activate reloadable_paths: [__dir__], delay: 1
   run ->(env) {
-    AutoReloader.reload! do
+    AutoReloader.reload! do |unloaded|
+      # by default, AutoReloader only unloads constants when a watched file changes;
+      # when it unloads code before calling this block, the value for unloaded will be true.
+      ActiveSupport::Dependencies.clear if unloaded && defined?(ActiveSupport::Dependencies)
       require_relative 'app'
       App.call env
     end

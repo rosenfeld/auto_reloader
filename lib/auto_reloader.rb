@@ -143,7 +143,7 @@ class AutoReloader
     if block_given?
       @reload_lock.synchronize{ @requests_count += 1 }
       begin
-        result = yield
+        result = yield !reload_ignored
       ensure
         @reload_lock.synchronize{
           @requests_count -= 1
