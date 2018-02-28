@@ -77,7 +77,7 @@ changes, it should be quite simple with the `listen` gem. Here's an example:
 app_config = File.expand_path('config/app.json', __dir__)
 Listen.to(File.expand_path('config', __dir__)) do |added, modified, removed|
   AutoReloader.force_next_reload if (added + modified + removed).include?(app_config)
-end
+end.start
 ```
 
 ## Thread-safety
