@@ -32,7 +32,7 @@ Here's how it would be used in a Rack application.
 app.rb:
 
 ```ruby
-App = ->{['200', {'Content-Type' => 'text/plain'}, ['Sample output']]}
+App = ->(env){['200', {'Content-Type' => 'text/plain'}, ['Sample output']]}
 ```
 
 config.ru:
