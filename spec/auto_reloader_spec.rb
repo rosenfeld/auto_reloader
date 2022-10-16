@@ -1,21 +1,14 @@
 gem 'listen'
 
-# we apply a monkey patch to rb-inotify to avoid polluting the logs until a new version is
-# released from master:
+# we apply a monkey patch to rb-inotify to avoid polluting the logs when calling
+# fd on a closed handler
 
 begin
   require 'rb-inotify'
 
-  class INotify::Event
-    def callback!
-      watcher && watcher.callback!(self)
-    end
-  end
-
-  ::INotify::Notifier.prepend Module.new{
-    def readpartial(size)
-      return super unless self.class.supports_ruby_io?
-      to_io.readpartial(size)
+  ::INotify::Notifier.prepend Module.new {
+    def fd
+      super
     rescue IOError, Errno::EBADF
     end
   }
@@ -135,6 +128,18 @@ describe AutoReloader, order: :defined do
       expect(C.count).to be 3
       AutoReloader.reload!(delay: 0.01){ require 'c' }
       expect(C.count).to be 1
+    end
+
+    it 'runs unload hooks in reverse order' do
+      order = []
+      AutoReloader.register_unload_hook{ order << 'first' }
+      AutoReloader.register_unload_hook{ order << 'second' }
+      AutoReloader.unload!
+      expect(order).to eq ['second', 'first']
+    end
+
+    it 'requires a block when calling register_unload_hook' do
+      expect{ AutoReloader.register_unload_hook }.to raise_error AutoReloader::InvalidUsage
     end
 
     context "changing reloadable paths" do

@@ -20,7 +20,7 @@ class AutoReloader
   attr_reader :reloadable_paths, :default_onchange, :default_delay, :default_await_before_unload
 
   def_delegators :instance, :activate, :reload!, :reloadable_paths, :reloadable_paths=,
-    :unload!, :force_next_reload, :sync_require!, :async_require!
+    :unload!, :force_next_reload, :sync_require!, :async_require!, :register_unload_hook
 
   module RequireOverride
     def require(path)
@@ -54,6 +54,7 @@ class AutoReloader
       @top_level_consts_stack = []
       @unload_constants = Set.new
       @unload_files = Set.new
+      @unload_hooks = []
       @last_reloaded = clock_time
       try_listen unless watch_paths == false
       self.reloadable_paths = reloadable_paths
@@ -159,15 +160,33 @@ class AutoReloader
   def unload!
     @force_reload = false
     @reload_lock.synchronize do
+      @unload_hooks.reverse_each{|h| run_unload_hook h }
       @unload_files.each{|f| $LOADED_FEATURES.delete f }
       @unload_constants.each{|c| safe_remove_constant c }
+      @unload_hooks = []
       @unload_files = Set.new
       @unload_constants = Set.new
     end
   end
 
+  def register_unload_hook(&hook)
+    raise InvalidUsage, "A block is required for register_unload_hook" unless block_given?
+    @reload_lock.synchronize do
+      @unload_hooks << hook
+    end
+  end
+
+  def run_unload_hook(hook)
+    hook.call
+  rescue => e
+    puts "Failed to run unload hook in AutoReloader: #{e.message}.\n\n#{e.backtrace.join("\n")}"
+  end
+
   def stop_listener
-    @listener.stop if @listener
+    @reload_lock.synchronize do
+      @listener.stop if @listener
+      @listener = nil
+    end
   end
 
   def force_next_reload
@@ -184,11 +203,13 @@ class AutoReloader
   end
 
   def setup_listener
-    @listener.stop if @listener
-    @listener = Listen.to(*@reloadable_paths, latency: @watch_latency) do |m, a, r|
-      @paths_changed = [m, a, r].any?{|o| o.any? {|f| reloadable?(f, nil) }}
+    @reload_lock.synchronize do
+      @listener.stop if @listener
+      @listener = Listen.to(*@reloadable_paths, latency: @watch_latency) do |m, a, r|
+        @paths_changed = [m, a, r].any?{|o| o.any? {|f| reloadable?(f, nil) }}
+      end
+      @listener.start
     end
-    @listener.start
   end
 
   if defined?(Process::CLOCK_MONOTONIC)
